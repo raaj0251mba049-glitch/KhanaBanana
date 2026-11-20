@@ -1,0 +1,6 @@
+{
+  "name": "KhanaBanana",
+  "description": "Khana kya hai? Woh hum decide karenge. Your resourceful AI-powered Indian cooking & budget food companion.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

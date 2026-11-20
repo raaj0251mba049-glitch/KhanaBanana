@@ -1,0 +1,557 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Authenticated user profile, preferences, personality settings, recent meal history, and custom AI companion name.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "displayName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "email": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 160
+        },
+        "buddyName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 40
+        },
+        "humourLevel": {
+          "type": "string",
+          "enum": ["Mild", "Friendly teasing", "Full-on desi dost"]
+        },
+        "conversationStyle": {
+          "type": "string",
+          "enum": ["Short & Punchy", "Warm & Detailed", "Pure Desi Banter"]
+        },
+        "preferredLanguage": {
+          "type": "string",
+          "enum": ["Hinglish", "English", "Hindi"]
+        },
+        "dietaryPreference": {
+          "type": "string",
+          "enum": ["Vegetarian", "Non-Vegetarian", "Eggetarian", "Vegan"]
+        },
+        "spiceTolerance": {
+          "type": "string",
+          "enum": ["Mild", "Medium", "Spicy", "Extra Spicy"]
+        },
+        "favouriteCuisines": {
+          "type": "array"
+        },
+        "allergies": {
+          "type": "array"
+        },
+        "dislikedIngredients": {
+          "type": "array"
+        },
+        "defaultEquipment": {
+          "type": "string",
+          "enum": ["Gas Stove", "Induction", "Both"]
+        },
+        "defaultUtensils": {
+          "type": "string",
+          "enum": ["One Pan / Kadhai", "Multiple Utensils", "Pressure Cooker + Pan"]
+        },
+        "defaultServings": {
+          "type": "integer"
+        },
+        "preferredPrepTime": {
+          "type": "string",
+          "enum": ["Under 15 mins", "15-30 mins", "30-45 mins", "No limit"]
+        },
+        "defaultBudget": {
+          "type": "number",
+          "description": "Optional explicit default shopping budget in INR; null when no default limit is set."
+        },
+        "hasExplicitDefaultBudget": {
+          "type": "boolean",
+          "description": "True only when the user explicitly saved a persistent default budget preference."
+        },
+        "recentMeals": {
+          "type": "array"
+        },
+        "memoryNotes": {
+          "type": "array"
+        },
+        "conversationState": {
+          "type": "string",
+          "enum": [
+            "IDLE",
+            "INVENTORY_UPDATE",
+            "FOOD_DISCOVERY",
+            "DISH_DISCOVERY",
+            "RECIPE_SELECTED",
+            "RECIPE_GENERATION",
+            "COOKING_MODE"
+          ]
+        },
+        "discoveryContext": {
+          "type": "object"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "uid",
+        "displayName",
+        "email",
+        "buddyName",
+        "preferredLanguage",
+        "dietaryPreference",
+        "spiceTolerance",
+        "favouriteCuisines",
+        "allergies",
+        "dislikedIngredients",
+        "defaultEquipment",
+        "defaultUtensils",
+        "defaultServings",
+        "preferredPrepTime",
+        "recentMeals",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "InventoryItem": {
+      "title": "InventoryItem",
+      "description": "Normalized ingredient stored in the user's personal kitchen inventory.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "userId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "canonicalName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "displayName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "numericQuantity": {
+          "type": "number"
+        },
+        "unit": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 24
+        },
+        "quantity": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 50
+        },
+        "category": {
+          "type": "string",
+          "enum": [
+            "Vegetables",
+            "Fruits",
+            "Grains",
+            "Rice",
+            "Pulses",
+            "Dairy",
+            "Eggs and meat",
+            "Spices",
+            "Sauces",
+            "Other"
+          ]
+        },
+        "isRegular": {
+          "type": "boolean"
+        },
+        "isAvailable": {
+          "type": "boolean"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "userId",
+        "name",
+        "quantity",
+        "category",
+        "isRegular",
+        "isAvailable",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "InventoryTransaction": {
+      "title": "InventoryTransaction",
+      "description": "Audit log of purchases, consumption, manual updates, and quantity corrections.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "userId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "itemId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "ingredientName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "canonicalName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "actionType": {
+          "type": "string",
+          "enum": [
+            "PURCHASE",
+            "CONSUMPTION",
+            "MANUAL_ADD",
+            "MANUAL_REMOVE",
+            "QUANTITY_CORRECTION",
+            "MARK_UNAVAILABLE",
+            "RESTOCK"
+          ]
+        },
+        "deltaQuantity": {
+          "type": "number"
+        },
+        "unit": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 24
+        },
+        "previousQuantity": {
+          "type": "number"
+        },
+        "newQuantity": {
+          "type": "number"
+        },
+        "source": {
+          "type": "string",
+          "enum": ["chat", "cooking_mode", "manual_ui", "shopping_transfer"]
+        },
+        "note": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "userId",
+        "itemId",
+        "ingredientName",
+        "canonicalName",
+        "actionType",
+        "deltaQuantity",
+        "unit",
+        "previousQuantity",
+        "newQuantity",
+        "source",
+        "note",
+        "createdAt"
+      ]
+    },
+    "ChatMessage": {
+      "title": "ChatMessage",
+      "description": "Persistent conversation message between the user and their custom AI food buddy.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "userId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "role": {
+          "type": "string",
+          "enum": ["user", "assistant"]
+        },
+        "content": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 20000
+        },
+        "buddyNameSnapshot": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 40
+        },
+        "budgetLimit": {
+          "type": "number"
+        },
+        "shoppingSummary": {
+          "type": "object"
+        },
+        "suggestedDishes": {
+          "type": "array"
+        },
+        "inventoryResults": {
+          "type": "array"
+        },
+        "attachedRecipeId": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "responseMode": {
+          "type": "string",
+          "enum": [
+            "INVENTORY_UPDATE",
+            "FOOD_DISCOVERY",
+            "DISH_DISCOVERY",
+            "RECIPE_SELECTED",
+            "GENERAL_CHAT"
+          ]
+        },
+        "selectedDishName": {
+          "type": "string",
+          "maxLength": 120
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "userId",
+        "role",
+        "content",
+        "buddyNameSnapshot",
+        "createdAt"
+      ]
+    },
+    "SavedRecipe": {
+      "title": "SavedRecipe",
+      "description": "Detailed personalized recipe generated and saved for the user.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "userId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "dishName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "cuisine": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 60
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1500
+        },
+        "servings": {
+          "type": "integer"
+        },
+        "prepTime": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 60
+        },
+        "cookTime": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 60
+        },
+        "difficulty": {
+          "type": "string",
+          "enum": ["Easy", "Medium", "Challenging"]
+        },
+        "spiceLevel": {
+          "type": "string",
+          "enum": ["Mild", "Medium", "Spicy", "Extra Spicy"]
+        },
+        "exactIngredients": {
+          "type": "array"
+        },
+        "existingIngredients": {
+          "type": "array"
+        },
+        "ingredientsToPurchase": {
+          "type": "array"
+        },
+        "estimatedPurchaseCost": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "ingredientConsumptionValueInr": {
+          "type": "number"
+        },
+        "missingIngredientValueInr": {
+          "type": "number"
+        },
+        "actualShoppingOutlayInr": {
+          "type": "number"
+        },
+        "appliedBudgetLimit": {
+          "type": "number"
+        },
+        "requiredUtensils": {
+          "type": "array"
+        },
+        "applianceType": {
+          "type": "string",
+          "enum": ["Gas", "Induction", "Both"]
+        },
+        "applianceGuidance": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1200
+        },
+        "steps": {
+          "type": "array"
+        },
+        "tasteEnhancers": {
+          "type": "array"
+        },
+        "substitutions": {
+          "type": "array"
+        },
+        "commonMistakes": {
+          "type": "array"
+        },
+        "storageGuidance": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1200
+        },
+        "isSaved": {
+          "type": "boolean"
+        },
+        "imageCategory": {
+          "type": "string",
+          "enum": ["north_indian", "street_food", "indo_chinese", "kitchen"]
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "userId",
+        "dishName",
+        "cuisine",
+        "description",
+        "servings",
+        "prepTime",
+        "cookTime",
+        "difficulty",
+        "spiceLevel",
+        "exactIngredients",
+        "existingIngredients",
+        "ingredientsToPurchase",
+        "estimatedPurchaseCost",
+        "requiredUtensils",
+        "applianceType",
+        "applianceGuidance",
+        "steps",
+        "tasteEnhancers",
+        "substitutions",
+        "commonMistakes",
+        "storageGuidance",
+        "isSaved",
+        "imageCategory",
+        "createdAt",
+        "updatedAt"
+      ]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserProfile" },
+      "description": "User profile, custom companion name, personality settings, preferences, and recent meal history."
+    },
+    "/users/{userId}/inventory/{itemId}": {
+      "schema": { "$ref": "#/entities/InventoryItem" },
+      "description": "User's normalized personal kitchen inventory items."
+    },
+    "/users/{userId}/inventoryTransactions/{txId}": {
+      "schema": { "$ref": "#/entities/InventoryTransaction" },
+      "description": "Immutable audit log of inventory purchases, consumption, and adjustments."
+    },
+    "/users/{userId}/messages/{messageId}": {
+      "schema": { "$ref": "#/entities/ChatMessage" },
+      "description": "User's persistent chat conversation history."
+    },
+    "/users/{userId}/recipes/{recipeId}": {
+      "schema": { "$ref": "#/entities/SavedRecipe" },
+      "description": "User's generated and saved personalized recipes."
+    }
+  }
+}

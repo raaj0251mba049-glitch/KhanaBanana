@@ -1,0 +1,100 @@
+/**
+ * Security Rules Verification Suite (Dirty Dozen Payloads)
+ * Covers all 12 adversarial cases documented in security_spec.md against firestore.rules.
+ */
+
+export const DIRTY_DOZEN_TESTS = [
+  {
+    name: '1. Unauthenticated Chat Read',
+    auth: null,
+    operation: 'get',
+    path: '/users/userA/messages/msg1',
+    expected: 'PERMISSION_DENIED',
+  },
+  {
+    name: '2. Cross-Tenant Profile Snooping',
+    auth: { uid: 'userB' },
+    operation: 'get',
+    path: '/users/userA',
+    expected: 'PERMISSION_DENIED',
+  },
+  {
+    name: '3. Cross-Tenant Inventory List',
+    auth: { uid: 'userB' },
+    operation: 'list',
+    path: '/users/userA/inventory',
+    expected: 'PERMISSION_DENIED',
+  },
+  {
+    name: '4. Identity Spoofing on Create',
+    auth: { uid: 'userB' },
+    operation: 'create',
+    path: '/users/userB/inventory/item1',
+    payload: { id: 'item1', userId: 'userA', name: 'Aloo', quantity: '500g', category: 'Vegetables', isRegular: true, isAvailable: true },
+    expected: 'PERMISSION_DENIED',
+  },
+  {
+    name: '5. Shadow Field Injection on Profile Create',
+    auth: { uid: 'userA' },
+    operation: 'create',
+    path: '/users/userA',
+    payload: { uid: 'userA', displayName: 'Raaj', email: 'raaj@example.com', buddyName: 'KhanaBanana', isAdmin: true },
+    expected: 'PERMISSION_DENIED',
+  },
+  {
+    name: '6. Shadow Field Injection on Profile Update',
+    auth: { uid: 'userA' },
+    operation: 'update',
+    path: '/users/userA',
+    payload: { role: 'superadmin' },
+    expected: 'PERMISSION_DENIED',
+  },
+  {
+    name: '7. Immutable Timestamp Tampering',
+    auth: { uid: 'userA' },
+    operation: 'create',
+    path: '/users/userA',
+    payload: { uid: 'userA', createdAt: '1999-01-01T00:00:00Z' },
+    expected: 'PERMISSION_DENIED',
+  },
+  {
+    name: '8. Immutable Ownership Mutation',
+    auth: { uid: 'userA' },
+    operation: 'update',
+    path: '/users/userA/recipes/rec1',
+    payload: { userId: 'userB' },
+    expected: 'PERMISSION_DENIED',
+  },
+  {
+    name: '9. Path ID Poisoning',
+    auth: { uid: 'userA' },
+    operation: 'create',
+    path: '/users/userA/inventory/invalid$id!with*badchars',
+    payload: { id: 'invalid$id!with*badchars', userId: 'userA' },
+    expected: 'PERMISSION_DENIED',
+  },
+  {
+    name: '10. Oversized String Exhaustion',
+    auth: { uid: 'userA' },
+    operation: 'create',
+    path: '/users/userA/inventory/item1',
+    payload: { id: 'item1', userId: 'userA', name: 'x'.repeat(500), quantity: '1kg', category: 'Vegetables', isRegular: true, isAvailable: true },
+    expected: 'PERMISSION_DENIED',
+  },
+  {
+    name: '11. Unbounded Array Injection',
+    auth: { uid: 'userA' },
+    operation: 'update',
+    path: '/users/userA',
+    payload: { recentMeals: Array.from({ length: 50 }, (_, i) => `Meal ${i}`) },
+    expected: 'PERMISSION_DENIED',
+  },
+  {
+    name: '12. Orphan Subcollection Write',
+    auth: { uid: 'userA' },
+    operation: 'create',
+    path: '/users/userA/messages/msg1',
+    payload: { id: 'msg1', userId: 'userA', role: 'user', content: 'Hi', buddyNameSnapshot: 'KhanaBanana' },
+    expected: 'PERMISSION_DENIED',
+  },
+];

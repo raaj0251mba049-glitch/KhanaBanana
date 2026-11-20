@@ -1,0 +1,30 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --kb-bg: #FAF8F3;
+    --kb-surface: #FFFFFF;
+    --kb-surface-muted: #F3EFE6;
+    --kb-border: #E6E0D3;
+    --kb-forest: #1B4D3E;
+    --kb-forest-deep: #13382D;
+    --kb-banana: #F4C430;
+    --kb-orange: #E06D2B;
+    --kb-ink: #1A2421;
+    --kb-ink-muted: #576560;
+  }
+
+  body {
+    font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    background-color: var(--kb-bg);
+    color: var(--kb-ink);
+  }
+
+  h1, h2, h3, h4, .font-display {
+    font-family: 'Bricolage Grotesque', 'DM Sans', sans-serif;
+  }
+
+  .font-mono, .tabular-nums {
+    font-variant-numeric: tabular-nums;
+  }
+}

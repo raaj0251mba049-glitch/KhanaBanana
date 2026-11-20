@@ -1,0 +1,389 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global Safety Net: Default-deny catch-all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // =========================================================================
+    // Primitive Helpers
+    // =========================================================================
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function userExists(userId) {
+      return exists(/databases/$(database)/documents/users/$(userId));
+    }
+
+    function isStringBounded(val, minLen, maxLen) {
+      return val is string && val.size() >= minLen && val.size() <= maxLen;
+    }
+
+    function isSmallStringList(listVal, maxLen) {
+      return listVal is list && listVal.size() <= maxLen && (listVal.size() == 0 || listVal[0] is string);
+    }
+
+    // =========================================================================
+    // Entity Validation Blueprints
+    // =========================================================================
+    function isValidUserProfile(data, userId) {
+      return data.keys().hasAll([
+          'uid', 'displayName', 'email', 'buddyName', 'preferredLanguage',
+          'dietaryPreference', 'spiceTolerance', 'favouriteCuisines', 'allergies',
+          'dislikedIngredients', 'defaultEquipment', 'defaultUtensils',
+          'defaultServings', 'preferredPrepTime', 'recentMeals',
+          'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'uid', 'displayName', 'email', 'buddyName', 'humourLevel', 'conversationStyle',
+          'preferredLanguage', 'dietaryPreference', 'spiceTolerance', 'favouriteCuisines',
+          'allergies', 'dislikedIngredients', 'defaultEquipment', 'defaultUtensils',
+          'defaultServings', 'preferredPrepTime', 'defaultBudget', 'hasExplicitDefaultBudget',
+          'recentMeals', 'memoryNotes', 'conversationState', 'discoveryContext',
+          'createdAt', 'updatedAt'
+        ])
+        && data.uid == userId
+        && data.uid == request.auth.uid
+        && isStringBounded(data.displayName, 1, 80)
+        && isStringBounded(data.email, 3, 160)
+        && isStringBounded(data.buddyName, 1, 40)
+        && (!('humourLevel' in data) || data.humourLevel in ['Mild', 'Friendly teasing', 'Full-on desi dost'])
+        && (!('conversationStyle' in data) || data.conversationStyle in ['Short & Punchy', 'Warm & Detailed', 'Pure Desi Banter'])
+        && data.preferredLanguage in ['Hinglish', 'English', 'Hindi']
+        && data.dietaryPreference in ['Vegetarian', 'Non-Vegetarian', 'Eggetarian', 'Vegan']
+        && data.spiceTolerance in ['Mild', 'Medium', 'Spicy', 'Extra Spicy']
+        && isSmallStringList(data.favouriteCuisines, 10)
+        && isSmallStringList(data.allergies, 20)
+        && isSmallStringList(data.dislikedIngredients, 30)
+        && data.defaultEquipment in ['Gas Stove', 'Induction', 'Both']
+        && data.defaultUtensils in ['One Pan / Kadhai', 'Multiple Utensils', 'Pressure Cooker + Pan']
+        && data.defaultServings is int && data.defaultServings >= 1 && data.defaultServings <= 12
+        && data.preferredPrepTime in ['Under 15 mins', '15-30 mins', '30-45 mins', 'No limit']
+        && (!('defaultBudget' in data) || data.defaultBudget == null || (data.defaultBudget is number && data.defaultBudget >= 0 && data.defaultBudget <= 10000))
+        && (!('hasExplicitDefaultBudget' in data) || data.hasExplicitDefaultBudget is bool)
+        && isSmallStringList(data.recentMeals, 20)
+        && (!('memoryNotes' in data) || isSmallStringList(data.memoryNotes, 30))
+        && (!('conversationState' in data) || data.conversationState in [
+          'IDLE', 'INVENTORY_UPDATE', 'FOOD_DISCOVERY', 'DISH_DISCOVERY',
+          'RECIPE_SELECTED', 'RECIPE_GENERATION', 'COOKING_MODE'
+        ])
+        && (!('discoveryContext' in data) || data.discoveryContext is map)
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidInventoryItem(data, userId, itemId) {
+      return data.keys().hasAll([
+          'id', 'userId', 'name', 'quantity', 'category', 'isRegular',
+          'isAvailable', 'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'id', 'userId', 'canonicalName', 'displayName', 'name',
+          'numericQuantity', 'unit', 'quantity', 'category', 'isRegular',
+          'isAvailable', 'createdAt', 'updatedAt'
+        ])
+        && data.id == itemId
+        && data.userId == userId
+        && data.userId == request.auth.uid
+        && isStringBounded(data.name, 1, 80)
+        && (!('canonicalName' in data) || isStringBounded(data.canonicalName, 1, 80))
+        && (!('displayName' in data) || isStringBounded(data.displayName, 1, 80))
+        && (!('numericQuantity' in data) || (data.numericQuantity is number && data.numericQuantity >= 0 && data.numericQuantity <= 1000000))
+        && (!('unit' in data) || isStringBounded(data.unit, 1, 24))
+        && isStringBounded(data.quantity, 1, 50)
+        && data.category in [
+          'Vegetables', 'Fruits', 'Grains', 'Rice', 'Pulses',
+          'Dairy', 'Eggs and meat', 'Spices', 'Sauces', 'Other'
+        ]
+        && data.isRegular is bool
+        && data.isAvailable is bool
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidInventoryTransaction(data, userId, txId) {
+      return data.keys().hasAll([
+          'id', 'userId', 'itemId', 'ingredientName', 'canonicalName',
+          'actionType', 'deltaQuantity', 'unit', 'previousQuantity',
+          'newQuantity', 'source', 'note', 'createdAt'
+        ])
+        && data.keys().hasOnly([
+          'id', 'userId', 'itemId', 'ingredientName', 'canonicalName',
+          'actionType', 'deltaQuantity', 'unit', 'previousQuantity',
+          'newQuantity', 'source', 'note', 'createdAt'
+        ])
+        && data.id == txId
+        && data.userId == userId
+        && data.userId == request.auth.uid
+        && isStringBounded(data.itemId, 1, 128)
+        && isStringBounded(data.ingredientName, 1, 80)
+        && isStringBounded(data.canonicalName, 1, 80)
+        && data.actionType in [
+          'PURCHASE', 'CONSUMPTION', 'MANUAL_ADD', 'MANUAL_REMOVE',
+          'QUANTITY_CORRECTION', 'MARK_UNAVAILABLE', 'RESTOCK'
+        ]
+        && data.deltaQuantity is number
+        && isStringBounded(data.unit, 1, 24)
+        && data.previousQuantity is number && data.previousQuantity >= 0
+        && data.newQuantity is number && data.newQuantity >= 0
+        && data.source in ['chat', 'cooking_mode', 'manual_ui', 'shopping_transfer']
+        && isStringBounded(data.note, 1, 200)
+        && data.createdAt is timestamp;
+    }
+
+    function isValidChatMessage(data, userId, messageId) {
+      return data.keys().hasAll([
+          'id', 'userId', 'role', 'content', 'buddyNameSnapshot', 'createdAt'
+        ])
+        && data.keys().hasOnly([
+          'id', 'userId', 'role', 'content', 'buddyNameSnapshot',
+          'budgetLimit', 'shoppingSummary', 'suggestedDishes',
+          'inventoryResults', 'attachedRecipeId', 'responseMode',
+          'selectedDishName', 'createdAt'
+        ])
+        && data.id == messageId
+        && data.userId == userId
+        && data.userId == request.auth.uid
+        && data.role in ['user', 'assistant']
+        && isStringBounded(data.content, 1, 20000)
+        && isStringBounded(data.buddyNameSnapshot, 1, 40)
+        && (!('budgetLimit' in data) || (data.budgetLimit is number && data.budgetLimit >= 0 && data.budgetLimit <= 100000))
+        && (!('shoppingSummary' in data) || data.shoppingSummary is map)
+        && (!('suggestedDishes' in data) || (data.suggestedDishes is list && data.suggestedDishes.size() <= 5))
+        && (!('inventoryResults' in data) || (data.inventoryResults is list && data.inventoryResults.size() <= 20))
+        && (!('attachedRecipeId' in data) || isStringBounded(data.attachedRecipeId, 0, 128))
+        && (!('responseMode' in data) || data.responseMode in [
+          'INVENTORY_UPDATE', 'FOOD_DISCOVERY', 'DISH_DISCOVERY',
+          'RECIPE_SELECTED', 'GENERAL_CHAT'
+        ])
+        && (!('selectedDishName' in data) || isStringBounded(data.selectedDishName, 0, 120))
+        && data.createdAt is timestamp;
+    }
+
+    function isValidSavedRecipe(data, userId, recipeId) {
+      return data.keys().hasAll([
+          'id', 'userId', 'dishName', 'cuisine', 'description', 'servings',
+          'prepTime', 'cookTime', 'difficulty', 'spiceLevel',
+          'exactIngredients', 'existingIngredients', 'ingredientsToPurchase',
+          'estimatedPurchaseCost', 'requiredUtensils', 'applianceType',
+          'applianceGuidance', 'steps', 'tasteEnhancers', 'substitutions',
+          'commonMistakes', 'storageGuidance', 'isSaved', 'imageCategory',
+          'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'id', 'userId', 'dishName', 'cuisine', 'description', 'servings',
+          'prepTime', 'cookTime', 'difficulty', 'spiceLevel',
+          'exactIngredients', 'existingIngredients', 'ingredientsToPurchase',
+          'estimatedPurchaseCost', 'ingredientConsumptionValueInr',
+          'missingIngredientValueInr', 'actualShoppingOutlayInr',
+          'appliedBudgetLimit', 'requiredUtensils', 'applianceType',
+          'applianceGuidance', 'steps', 'tasteEnhancers', 'substitutions',
+          'commonMistakes', 'storageGuidance', 'isSaved', 'imageCategory',
+          'createdAt', 'updatedAt'
+        ])
+        && data.id == recipeId
+        && data.userId == userId
+        && data.userId == request.auth.uid
+        && isStringBounded(data.dishName, 1, 120)
+        && isStringBounded(data.cuisine, 1, 60)
+        && isStringBounded(data.description, 1, 1500)
+        && data.servings is int && data.servings >= 1 && data.servings <= 20
+        && isStringBounded(data.prepTime, 1, 60)
+        && isStringBounded(data.cookTime, 1, 60)
+        && data.difficulty in ['Easy', 'Medium', 'Challenging']
+        && data.spiceLevel in ['Mild', 'Medium', 'Spicy', 'Extra Spicy']
+        && data.exactIngredients is list && data.exactIngredients.size() <= 40
+        && data.existingIngredients is list && data.existingIngredients.size() <= 40
+        && data.ingredientsToPurchase is list && data.ingredientsToPurchase.size() <= 30
+        && isStringBounded(data.estimatedPurchaseCost, 1, 80)
+        && (!('ingredientConsumptionValueInr' in data) || (data.ingredientConsumptionValueInr is number && data.ingredientConsumptionValueInr >= 0 && data.ingredientConsumptionValueInr <= 100000))
+        && (!('missingIngredientValueInr' in data) || (data.missingIngredientValueInr is number && data.missingIngredientValueInr >= 0 && data.missingIngredientValueInr <= 100000))
+        && (!('actualShoppingOutlayInr' in data) || (data.actualShoppingOutlayInr is number && data.actualShoppingOutlayInr >= 0 && data.actualShoppingOutlayInr <= 100000))
+        && (!('appliedBudgetLimit' in data) || data.appliedBudgetLimit == null || (data.appliedBudgetLimit is number && data.appliedBudgetLimit >= 0 && data.appliedBudgetLimit <= 100000))
+        && data.requiredUtensils is list && data.requiredUtensils.size() <= 15
+        && data.applianceType in ['Gas', 'Induction', 'Both']
+        && isStringBounded(data.applianceGuidance, 1, 1200)
+        && data.steps is list && data.steps.size() >= 1 && data.steps.size() <= 30
+        && data.tasteEnhancers is list && data.tasteEnhancers.size() <= 15
+        && data.substitutions is list && data.substitutions.size() <= 15
+        && data.commonMistakes is list && data.commonMistakes.size() <= 15
+        && isStringBounded(data.storageGuidance, 1, 1200)
+        && data.isSaved is bool
+        && data.imageCategory in ['north_indian', 'street_food', 'indo_chinese', 'kitchen']
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    // =========================================================================
+    // User Profile Collection
+    // =========================================================================
+    match /users/{userId} {
+      allow get: if isValidId(userId) && isOwner(userId);
+      allow list: if false;
+
+      allow create: if isValidId(userId)
+        && isOwner(userId)
+        && isValidUserProfile(incoming(), userId)
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+
+      allow update: if isValidId(userId)
+        && isOwner(userId)
+        && isValidUserProfile(incoming(), userId)
+        && incoming().uid == existing().uid
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && (
+          // Action: Update Preferences & Buddy Personality
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'displayName', 'buddyName', 'humourLevel', 'conversationStyle',
+            'preferredLanguage', 'dietaryPreference', 'spiceTolerance',
+            'favouriteCuisines', 'allergies', 'dislikedIngredients',
+            'defaultEquipment', 'defaultUtensils', 'defaultServings',
+            'preferredPrepTime', 'defaultBudget', 'hasExplicitDefaultBudget', 'updatedAt'
+          ]) ||
+          // Action: Update Recent Meals History
+          incoming().diff(existing()).affectedKeys().hasOnly(['recentMeals', 'updatedAt']) ||
+          // Action: Persist Long-Term Food Preferences & Memory Extracted from Chat
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'spiceTolerance', 'dietaryPreference', 'favouriteCuisines',
+            'allergies', 'dislikedIngredients', 'recentMeals', 'memoryNotes', 'updatedAt'
+          ]) ||
+          // Action: Persist Conversation State & Discovery Context
+          incoming().diff(existing()).affectedKeys().hasOnly(['conversationState', 'discoveryContext', 'updatedAt'])
+        );
+
+      allow delete: if false;
+
+      // =======================================================================
+      // Kitchen Inventory Subcollection
+      // =======================================================================
+      match /inventory/{itemId} {
+        allow get: if isValidId(userId) && isValidId(itemId) && isOwner(userId);
+        allow list: if isValidId(userId) && isOwner(userId) && existing().userId == request.auth.uid;
+
+        allow create: if isValidId(userId)
+          && isValidId(itemId)
+          && isOwner(userId)
+          && isValidInventoryItem(incoming(), userId, itemId)
+          && incoming().createdAt == request.time
+          && incoming().updatedAt == request.time
+          && userExists(userId);
+
+        allow update: if isValidId(userId)
+          && isValidId(itemId)
+          && isOwner(userId)
+          && isValidInventoryItem(incoming(), userId, itemId)
+          && incoming().id == existing().id
+          && incoming().userId == existing().userId
+          && incoming().createdAt == existing().createdAt
+          && incoming().updatedAt == request.time
+          && userExists(userId)
+          && incoming().diff(existing()).affectedKeys().hasOnly([
+            'canonicalName', 'displayName', 'name', 'numericQuantity',
+            'unit', 'quantity', 'category', 'isRegular', 'isAvailable', 'updatedAt'
+          ]);
+
+        allow delete: if isValidId(userId) && isValidId(itemId) && isOwner(userId);
+      }
+
+      // =======================================================================
+      // Inventory Transactions Audit Log Subcollection (Immutable History)
+      // =======================================================================
+      match /inventoryTransactions/{txId} {
+        allow get: if isValidId(userId) && isValidId(txId) && isOwner(userId);
+        allow list: if isValidId(userId) && isOwner(userId) && existing().userId == request.auth.uid;
+
+        allow create: if isValidId(userId)
+          && isValidId(txId)
+          && isOwner(userId)
+          && isValidInventoryTransaction(incoming(), userId, txId)
+          && incoming().createdAt == request.time
+          && userExists(userId);
+
+        allow update: if false;
+        allow delete: if isValidId(userId) && isValidId(txId) && isOwner(userId);
+      }
+
+      // =======================================================================
+      // Chat Messages Subcollection
+      // =======================================================================
+      match /messages/{messageId} {
+        allow get: if isValidId(userId) && isValidId(messageId) && isOwner(userId);
+        allow list: if isValidId(userId) && isOwner(userId) && existing().userId == request.auth.uid;
+
+        allow create: if isValidId(userId)
+          && isValidId(messageId)
+          && isOwner(userId)
+          && isValidChatMessage(incoming(), userId, messageId)
+          && incoming().createdAt == request.time
+          && userExists(userId);
+
+        allow update: if isValidId(userId)
+          && isValidId(messageId)
+          && isOwner(userId)
+          && isValidChatMessage(incoming(), userId, messageId)
+          && incoming().id == existing().id
+          && incoming().userId == existing().userId
+          && incoming().createdAt == existing().createdAt
+          && userExists(userId)
+          && incoming().diff(existing()).affectedKeys().hasOnly(['attachedRecipeId', 'inventoryResults']);
+
+        allow delete: if isValidId(userId) && isValidId(messageId) && isOwner(userId);
+      }
+
+      // =======================================================================
+      // Saved Recipes Subcollection
+      // =======================================================================
+      match /recipes/{recipeId} {
+        allow get: if isValidId(userId) && isValidId(recipeId) && isOwner(userId);
+        allow list: if isValidId(userId) && isOwner(userId) && existing().userId == request.auth.uid;
+
+        allow create: if isValidId(userId)
+          && isValidId(recipeId)
+          && isOwner(userId)
+          && isValidSavedRecipe(incoming(), userId, recipeId)
+          && incoming().createdAt == request.time
+          && incoming().updatedAt == request.time
+          && userExists(userId);
+
+        allow update: if isValidId(userId)
+          && isValidId(recipeId)
+          && isOwner(userId)
+          && isValidSavedRecipe(incoming(), userId, recipeId)
+          && incoming().id == existing().id
+          && incoming().userId == existing().userId
+          && incoming().createdAt == existing().createdAt
+          && incoming().updatedAt == request.time
+          && userExists(userId)
+          && incoming().diff(existing()).affectedKeys().hasOnly([
+            'isSaved', 'servings', 'exactIngredients', 'existingIngredients',
+            'ingredientsToPurchase', 'estimatedPurchaseCost',
+            'ingredientConsumptionValueInr', 'missingIngredientValueInr',
+            'actualShoppingOutlayInr', 'appliedBudgetLimit', 'updatedAt'
+          ]);
+
+        allow delete: if isValidId(userId) && isValidId(recipeId) && isOwner(userId);
+      }
+    }
+  }
+}
