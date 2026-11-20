@@ -5,21 +5,24 @@ import path from 'node:path';
 import express from 'express';
 import type { NextFunction, Request, Response } from 'express';
 import { GoogleGenAI, ThinkingLevel, Type } from '@google/genai';
+
 import {
   formatQuantity,
   normalizeIngredientMeta,
   normalizeUnit,
-} from '../src/lib/inventoryUtils';
+} from '../src/lib/inventoryUtils.ts';
+
 import {
   calculateRecipeCostBreakdown,
   detectHomeAvailableClaims,
   optimizeOptionalIngredientsForBudget,
-} from '../src/lib/recipeCostEngine';
+} from '../src/lib/recipeCostEngine.ts';
+
 import type {
   InventoryItem,
   RecipeIngredient,
   RecipePurchaseItem,
-} from '../src/types';
+} from '../src/types.ts';
 
 const MODEL_NAME = 'gemini-4-hydrogen';
 const FALLBACK_MODEL_NAME = 'gemini-3.1-flash-lite';
