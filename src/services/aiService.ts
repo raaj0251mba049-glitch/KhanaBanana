@@ -1,3 +1,4 @@
+import { auth } from '../lib/firebase';
 import type {
   ChatMessage,
   ChatResponseMode,
@@ -39,6 +40,19 @@ export class AiServiceError extends Error {
   }
 }
 
+async function getApiHeaders(): Promise<Record<string, string>> {
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  try {
+    const token = await auth.currentUser?.getIdToken();
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
+  } catch {
+    // Non-fatal: proceed without Bearer header if token fetch fails transiently
+  }
+  return headers;
+}
+
 async function parseErrorResponse(response: Response, fallbackMsg: string): Promise<AiServiceError> {
   try {
     const data = await response.json();
@@ -74,9 +88,10 @@ export async function sendChatMessageToAi(params: {
 
   let response: Response;
   try {
+    const headers = await getApiHeaders();
     response = await fetch('/api/chat', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify({
         message: params.message,
         history: params.history.slice(-14).map((m) => ({
@@ -141,9 +156,10 @@ export async function generateFullRecipe(params: {
 }): Promise<Omit<SavedRecipe, 'id' | 'userId' | 'createdAt' | 'updatedAt' | 'isSaved'>> {
   let response: Response;
   try {
+    const headers = await getApiHeaders();
     response = await fetch('/api/recipe/generate', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify({
         dishName: params.dishName,
         profile: params.profile,
@@ -186,9 +202,10 @@ export async function askCookingAssistant(params: {
 }): Promise<string> {
   let response: Response;
   try {
+    const headers = await getApiHeaders();
     response = await fetch('/api/cooking/assist', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify(params),
     });
   } catch {

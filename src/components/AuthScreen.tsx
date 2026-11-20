@@ -29,6 +29,8 @@ function mapAuthError(err: unknown): string {
       return 'Please enter a valid email address.';
     case 'auth/popup-closed-by-user':
       return 'Google sign-in popup was closed before completing.';
+    case 'auth/unauthorized-domain':
+      return `This domain (${typeof window !== 'undefined' ? window.location.hostname : 'current domain'}) is not authorized in Firebase Authentication yet. Add it under Firebase Console > Authentication > Settings > Authorized domains.`;
     case 'auth/operation-not-allowed':
       return 'Email/Password sign-in is not enabled in Firebase Console yet. Enable it under Authentication > Sign-in method, or use Google Sign-In.';
     case 'auth/too-many-requests':
