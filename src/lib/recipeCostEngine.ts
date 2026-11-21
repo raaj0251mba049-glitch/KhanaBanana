@@ -5,7 +5,7 @@ import {
   normalizeUnit,
   parseQuantityString,
   toBaseQuantity,
-} from './inventoryUtils.ts';
+} from './inventoryUtils.js';
 import type {
   InventoryItem,
   RecipeIngredient,
